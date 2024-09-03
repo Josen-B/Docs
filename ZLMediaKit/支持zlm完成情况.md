@@ -12,7 +12,7 @@
    2. `ffmpeg` （需另外安装，可以本机 apt/pacman 安装后直接拖可执行文件）和所需的动态库
    3. 一个视频文件 `01.mp4`，内容随意。放到和 `ffmpeg` 同目录
 3. 启动后执行 `./MediaServer -d &` 命令
-4. 然后执行 `ffmpeg -re -i "01.mp4" -vcodec h264 -acodec aac -f rtsp -rtsp_transport tcp rtsp://127.0.0.1/live/test` 命令
+4. 然后执行 `./ffmpeg -re -i "01.mp4" -vcodec h264 -acodec aac -f rtsp -rtsp_transport tcp rtsp://127.0.0.1/live/test` 命令
 5. 等待播放完成，检查 `MediaServer` 文件同目录下的 `www` 这个目录，里面套了几层，有视频传输留下的 `.ts` 格式流文件
 6. 关机后，将 `.ts` 文件拷出文件系统镜像，（可以合并但不是必须）确认能正常播放，且与 `01.mp4` 内容相同，则说明 Starry 成功运行了 `ZLMediaKit`
 
@@ -26,7 +26,7 @@
 
      [文档](https://github.com/Josen-B/Docs_for_zlm/blob/main/ZLMediaKit/ffmpeg%E7%A7%BB%E6%A4%8D%E5%88%B0starry.pdf)， [代码](https://github.com/Arceos-monolithic/Starry/commit/8c92debedb383858f2d963289328c6e831330cd7)
 
-2. 支持 `sys_rseq`：<font color='orange'>（暂放）</font>
+2. 支持 `sys_rseq`：<font color='orange'>（暂放，未实现）</font>
 
    - rseq 是一个比较新的 syscall，扩展了 Linux 的锁机制。大体上来说，它可以让用户注册一段“临界区代码”，如果某个线程在其中执行时被调度了，下次再回到这个线程时就要从头开始。中文文档比较少，[这里](https://zhuanlan.zhihu.com/p/103960889)有一个，代码建议直接参考 [Linux 源码的这一段](https://github.com/torvalds/linux/blob/master/kernel/rseq.c)。
    - 这个功能对大家来说比较难，如果后续评估认为它太复杂可以绕过
@@ -37,7 +37,7 @@
 
      [文档](https://github.com/Josen-B/Docs_for_zlm/blob/main/ZLMediaKit/syscall_dup.pdf)， [代码](https://github.com/Arceos-monolithic/Starry/commit/0dfe1b3caa344514226132be1373904b9959dcab)
 
-4. 完善 `futex`：<font color='orange'>（已完成）</font>
+4. 完善 `futex`：<font color='orange'>（部分实现，FUTEX_CLOCK_REALTIME还未实现）</font>
 
    - 在第一阶段任务中，已经添加了一个 `FUTEX_WAKE_PRIVATE` 参数。但实际运行 ZLMediaKit 时需要更多的参数，例如 `FUTEX_WAIT_BITSET_PRIVATE` `FUTEX_CLOCK_REALTIME` `FUTEX_BITSET_MATCH_ANY` 等，因此需要在 Starry 中做出一个相对完善的 `futex` 实现。
 
@@ -63,7 +63,7 @@
 
 8. `SCHED_FIFO` 调度以及相关 syscall：
 
-   <font color='orange'>（新版本starry中已实现sched_setscheduler；  sched_get_priority_min 和 sched_get_priority_max还未实现）</font>
+   <font color='orange'>（新版本starry中已实现sched_setscheduler；  sched_get_priority_min 和 sched_get_priority_max已写完代码，还未提交）</font>
 
    - 什么是 `SCHED_FIFO`？
      给没上过 OS 课的同学说一下，在这种调度框架下，每个进程有一个优先级，而每个优先级都对应一个队列。在同队列内，每个进程轮流运行；在不同队列之间，优先级高的必定抢占优先级低的，除非高优先级的进程退出或者主动让出。
@@ -140,7 +140,7 @@
 
       [文档](https://github.com/Josen-B/Docs_for_zlm/blob/main/ZLMediaKit/prlimit%E6%94%AF%E6%8C%81%E8%AE%BE%E7%BD%AE%E6%A0%88%E5%A4%A7%E5%B0%8F.pdf)， [代码1](https://github.com/Starry-OS/linux_syscall_api/commit/8c394a0cb590a73ea42c352ffe43d935e2d00397)，[代码2](https://github.com/Starry-OS/axprocess/commit/336c510afe95f736fac582f445ac4d76a9df875b)
 
-14. 简单应付一下 prctl 输出 <font color='orange'>（排查ffmpeg日志中没有以下输出）</font>
+14. 简单应付一下 prctl 输出 <font color='orange'>（排查ffmpeg日志中没有以下输出，暂时不做实现）</font>
 
     - 目前 prctl 是直接返回 0。需要改成对以下参数返回 -1 或者 1：
 
@@ -155,7 +155,7 @@
 
       不建议去实现对应功能，直接用 if-else 特判吧。
 
-15. 新增特殊文件：<font color='orange'>（需要对axfs添加依赖axtask，CI测试中在multitask中可以，single-task中不行，已回退，再次开启zlm支持工作时需做讨论）</font>
+15. 新增特殊文件：<font color='orange'>（已完成）</font>
 
     - ffmpeg 会使用新的特殊文件 `/proc/filesystems` `/proc/self/status` 以及目录 `/sys/devices/system/cpu` 对应如下输出
 
@@ -187,10 +187,10 @@
 
       [文档](https://github.com/Josen-B/Docs_for_zlm/blob/main/ZLMediaKit/%E6%B7%BB%E5%8A%A0%E7%89%B9%E6%AE%8A%E6%96%87%E4%BB%B6.pdf)， 代码暂存本地
 
-16. 其他略过的 syscall <font color='orange'>（待启动）</font>
+16. 其他略过的 syscall <font color='orange'>（已完成）</font>
 
-    - `mlock` 返回 0，`getuid` `geteuid` 返回 1000 即可。后两个在目前的 Starry 里是返回 0 的，需要过一遍其他测例检查改成 1000 有没有其他问题。
-    - `ioctl(2, TCGETS, {B38400 opost isig icanon echo ...}) = 0` 这里 ioctl 通过 TCGETS 获取串口信息，随后在屏幕上输出。这里还没有进一步考察是否可以直接忽略并返回 0。
+    - `mlock` 返回 0，`getuid` `geteuid` 返回 1000 即可。后两个在目前的 Starry 里是返回 0 的，需要过一遍其他测例检查改成 1000 有没有其他问题。<font color='orange'>strace中只有getuid返回为0，似乎不需要将返回值改为1000</font>
+    - `ioctl(2, TCGETS, {B38400 opost isig icanon echo ...}) = 0` 这里 ioctl 通过 TCGETS 获取串口信息，随后在屏幕上输出。这里还没有进一步考察是否可以直接忽略并返回 0。<font color='orange'>目前已经直接返回为0</font>
 
 17. 新增 mremap <font color='orange'>（新版本starry已实现）</font>
 
@@ -215,7 +215,7 @@ recvfrom(4, "P", 1, 0, NULL, NULL)      = 1
 
 不过这个应该 Starry 本身有支持，不需要额外新增功能。
 
-### 建立连接<font color='orange'>（待启动）</font>
+### 建立连接<font color='orange'>（已完成）</font>
 
 以下是 `ffmpeg` 和 `ZLMediaKit` 两边建立连接发生的 syscall 调用以及需要的支持。想要在机器上看到这一部分的功能，至少需要先完成 `ffmpeg` 的启动和推流。
 
@@ -269,7 +269,7 @@ recvfrom(4, "P", 1, 0, NULL, NULL)      = 1
 
 - 最后传输完成后 `shutdown`，这个目前 Starry 应该已经有了
 
-### 检查输出<font color='orange'>（待启动）</font>
+### 检查输出<font color='orange'>（已完成）</font>
 
 我们需要一项机制去检查内核是否实现了 ZLMidiaKit 需要的功能，且使其正常工作。显然，`return 0` 不能算是一个程序正常运转的
 依据。
